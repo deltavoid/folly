@@ -33,6 +33,8 @@
 #include <map>
 #include <memory>
 
+#include <glog/logging.h>
+
 namespace folly {
 
 /**
@@ -997,7 +999,10 @@ class AsyncSocket : virtual public AsyncTransportWrapper {
         : EventHandler(eventBase, fd), socket_(socket) {}
 
     void handlerReady(uint16_t events) noexcept override {
+      DLOG(INFO) << "folly::AsyncSocket::IoHandler::handlerReady: 1";
       socket_->ioReady(events);
+
+      DLOG(INFO) << "folly::AsyncSocket::IoHandler::handlerReady: 2, end";
     }
 
    private:

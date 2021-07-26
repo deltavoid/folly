@@ -1699,12 +1699,16 @@ int AsyncSocket::setTCPProfile(int profd) {
 }
 
 void AsyncSocket::ioReady(uint16_t events) noexcept {
+
+  DLOG(INFO) << "folly::AsyncSocket::ioReady: 1";
+
   VLOG(7) << "AsyncSocket::ioRead() this=" << this << ", fd=" << fd_
           << ", events=" << std::hex << events << ", state=" << state_;
   DestructorGuard dg(this);
   assert(events & EventHandler::READ_WRITE);
   eventBase_->dcheckIsInEventBaseThread();
 
+  DLOG(INFO) << "folly::AsyncSocket::ioReady: 2";
   uint16_t relevantEvents = uint16_t(events & EventHandler::READ_WRITE);
   EventBase* originalEventBase = eventBase_;
   // If we got there it means that either EventHandler::READ or
@@ -1714,19 +1718,29 @@ void AsyncSocket::ioReady(uint16_t events) noexcept {
   // Return if we handle any error messages - this is to avoid
   // unnecessary read/write calls
   if (handleErrMessages()) {
+    DLOG(INFO) << "folly::AsyncSocket::ioReady: 3";
     return;
   }
 
+  DLOG(INFO) << "folly::AsyncSocket::ioReady: 4";
   // Return now if handleErrMessages() detached us from our EventBase
   if (eventBase_ != originalEventBase) {
+    DLOG(INFO) << "folly::AsyncSocket::ioReady: 5";
     return;
   }
 
+  DLOG(INFO) << "folly::AsyncSocket::ioReady: 6";
   if (relevantEvents == EventHandler::READ) {
+
+    DLOG(INFO) << "folly::AsyncSocket::ioReady: 7";
     handleRead();
   } else if (relevantEvents == EventHandler::WRITE) {
+
+    DLOG(INFO) << "folly::AsyncSocket::ioReady: 8";
     handleWrite();
   } else if (relevantEvents == EventHandler::READ_WRITE) {
+
+    DLOG(INFO) << "folly::AsyncSocket::ioReady: 9";
     // If both read and write events are ready, process writes first.
     handleWrite();
 
@@ -1739,13 +1753,19 @@ void AsyncSocket::ioReady(uint16_t events) noexcept {
     // (It's possible that the read callback was uninstalled during
     // handleWrite().)
     if (readCallback_) {
+
+      DLOG(INFO) << "folly::AsyncSocket::ioReady: 10";
       handleRead();
     }
   } else {
+
+    DLOG(INFO) << "folly::AsyncSocket::ioReady: 11";
     VLOG(4) << "AsyncSocket::ioRead() called with unexpected events "
             << std::hex << events << "(this=" << this << ")";
     abort();
   }
+
+  DLOG(INFO) << "folly::AsyncSocket::ioReady: 12, end";
 }
 
 AsyncSocket::ReadResult
@@ -1867,6 +1887,8 @@ bool AsyncSocket::processZeroCopyWriteInProgress() noexcept {
 }
 
 void AsyncSocket::handleRead() noexcept {
+
+  DLOG(INFO) << "folly::AsyncSocket::handleRead: 1";
   VLOG(5) << "AsyncSocket::handleRead() this=" << this << ", fd=" << fd_
           << ", state=" << state_;
   assert(state_ == StateEnum::ESTABLISHED);
@@ -1895,10 +1917,14 @@ void AsyncSocket::handleRead() noexcept {
   uint16_t numReads = 0;
   EventBase* originalEventBase = eventBase_;
   while (readCallback_ && eventBase_ == originalEventBase) {
+
+    DLOG(INFO) << "folly::AsyncSocket::handleRead: 2";
     // Get the buffer to read into.
     void* buf = nullptr;
     size_t buflen = 0, offset = 0;
     try {
+
+      DLOG(INFO) << "folly::AsyncSocket::handleRead: 3";
       prepareReadBuffer(&buf, &buflen);
       VLOG(5) << "prepareReadBuffer() buf=" << buf << ", buflen=" << buflen;
     } catch (const AsyncSocketException& ex) {
@@ -1917,7 +1943,11 @@ void AsyncSocket::handleRead() noexcept {
           "non-exception type");
       return failRead(__func__, ex);
     }
+
+    DLOG(INFO) << "folly::AsyncSocket::handleRead: 4";
     if (!isBufferMovable_ && (buf == nullptr || buflen == 0)) {
+
+      DLOG(INFO) << "folly::AsyncSocket::handleRead: 5";
       AsyncSocketException ex(
           AsyncSocketException::BAD_ARGS,
           "ReadCallback::getReadBuffer() returned "
@@ -1925,15 +1955,23 @@ void AsyncSocket::handleRead() noexcept {
       return failRead(__func__, ex);
     }
 
+    DLOG(INFO) << "folly::AsyncSocket::handleRead: 6";
     // Perform the read
     auto readResult = performRead(&buf, &buflen, &offset);
     auto bytesRead = readResult.readReturn;
+    DLOG(INFO) << "folly::AsyncSocket::handleRead: 7";
     VLOG(4) << "this=" << this << ", AsyncSocket::handleRead() got "
             << bytesRead << " bytes";
     if (bytesRead > 0) {
+
+      DLOG(INFO) << "folly::AsyncSocket::handleRead: 8";
       if (!isBufferMovable_) {
+
+        DLOG(INFO) << "folly::AsyncSocket::handleRead: 9";
         readCallback_->readDataAvailable(size_t(bytesRead));
       } else {
+
+        DLOG(INFO) << "folly::AsyncSocket::handleRead: 10";
         CHECK(kOpenSslModeMoveBufferOwnership);
         VLOG(5) << "this=" << this << ", AsyncSocket::handleRead() got "
                 << "buf=" << buf << ", " << bytesRead << "/" << buflen
@@ -1949,16 +1987,26 @@ void AsyncSocket::handleRead() noexcept {
       // Note that readCallback_ may have been uninstalled or changed inside
       // readDataAvailable().
       if (size_t(bytesRead) < buflen) {
+
+        DLOG(INFO) << "folly::AsyncSocket::handleRead: 11";
         return;
       }
     } else if (bytesRead == READ_BLOCKING) {
+
+      DLOG(INFO) << "folly::AsyncSocket::handleRead: 13";
       // No more data to read right now.
       return;
     } else if (bytesRead == READ_ERROR) {
+
+      DLOG(INFO) << "folly::AsyncSocket::handleRead: 14";
       readErr_ = READ_ERROR;
       if (readResult.exception) {
+
+        DLOG(INFO) << "folly::AsyncSocket::handleRead: 15";
         return failRead(__func__, *readResult.exception);
       }
+
+      DLOG(INFO) << "folly::AsyncSocket::handleRead: 16";
       auto errnoCopy = errno;
       AsyncSocketException ex(
           AsyncSocketException::INTERNAL_ERROR,
@@ -1966,31 +2014,50 @@ void AsyncSocket::handleRead() noexcept {
           errnoCopy);
       return failRead(__func__, ex);
     } else {
+
+      DLOG(INFO) << "folly::AsyncSocket::handleRead: 17";
       assert(bytesRead == READ_EOF);
       readErr_ = READ_EOF;
       // EOF
       shutdownFlags_ |= SHUT_READ;
       if (!updateEventRegistration(0, EventHandler::READ)) {
+
+        DLOG(INFO) << "folly::AsyncSocket::handleRead: 18";
         // we've already been moved into STATE_ERROR
         assert(state_ == StateEnum::ERROR);
         assert(readCallback_ == nullptr);
         return;
       }
 
+      DLOG(INFO) << "folly::AsyncSocket::handleRead: 19";
       ReadCallback* callback = readCallback_;
       readCallback_ = nullptr;
       callback->readEOF();
+
+      DLOG(INFO) << "folly::AsyncSocket::handleRead: 20";
       return;
     }
+
+    DLOG(INFO) << "folly::AsyncSocket::handleRead: 21";
     if (maxReadsPerEvent_ && (++numReads >= maxReadsPerEvent_)) {
+
+      DLOG(INFO) << "folly::AsyncSocket::handleRead: 22";
       if (readCallback_ != nullptr) {
+
+        DLOG(INFO) << "folly::AsyncSocket::handleRead: 23";
         // We might still have data in the socket.
         // (e.g. see comment in AsyncSSLSocket::checkForImmediateRead)
         scheduleImmediateRead();
       }
+
+      DLOG(INFO) << "folly::AsyncSocket::handleRead: 24";
       return;
     }
+
+    DLOG(INFO) << "folly::AsyncSocket::handleRead: 25";
   }
+
+  DLOG(INFO) << "folly::AsyncSocket::handleRead: 26, end";
 }
 
 /**

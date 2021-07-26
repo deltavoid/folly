@@ -146,23 +146,34 @@ void EventHandler::ensureNotRegistered(const char* fn) {
 }
 
 void EventHandler::libeventCallback(libevent_fd_t fd, short events, void* arg) {
+
+  DLOG(INFO) << "folly::EventHandler::libeventCallback: 1";
   EventHandler* handler = reinterpret_cast<EventHandler*>(arg);
   assert(fd == handler->event_.ev_fd);
   (void)fd; // prevent unused variable warnings
 
+  DLOG(INFO) << "folly::EventHandler::libeventCallback: 2";
   auto observer = handler->eventBase_->getExecutionObserver();
   if (observer) {
+    DLOG(INFO) << "folly::EventHandler::libeventCallback: 3";
     observer->starting(reinterpret_cast<uintptr_t>(handler));
   }
 
+  DLOG(INFO) << "folly::EventHandler::libeventCallback: 4";
   // this can't possibly fire if handler->eventBase_ is nullptr
   handler->eventBase_->bumpHandlingTime();
 
+  DLOG(INFO) << "folly::EventHandler::libeventCallback: 5";
   handler->handlerReady(uint16_t(events));
 
+  DLOG(INFO) << "folly::EventHandler::libeventCallback: 6";
   if (observer) {
+
+    DLOG(INFO) << "folly::EventHandler::libeventCallback: 7";
     observer->stopped(reinterpret_cast<uintptr_t>(handler));
   }
+
+  DLOG(INFO) << "folly::EventHandler::libeventCallback: 8, end";
 }
 
 void EventHandler::setEventBase(EventBase* eventBase) {
