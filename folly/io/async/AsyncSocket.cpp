@@ -433,7 +433,9 @@ void AsyncSocket::connect(
     const folly::SocketAddress& address,
     int timeout,
     const OptionMap& options,
-    const folly::SocketAddress& bindAddr) noexcept {
+    const folly::SocketAddress& bindAddr) noexcept 
+{
+  DLOG(INFO) << "folly::AsyncSocket::connect: 1";
   DestructorGuard dg(this);
   eventBase_->dcheckIsInEventBaseThread();
 
@@ -441,18 +443,22 @@ void AsyncSocket::connect(
 
   // Make sure we're in the uninitialized state
   if (state_ != StateEnum::UNINIT) {
+    DLOG(INFO) << "folly::AsyncSocket::connect: 2";
     return invalidState(callback);
   }
 
+  DLOG(INFO) << "folly::AsyncSocket::connect: 3";
   connectTimeout_ = std::chrono::milliseconds(timeout);
   connectStartTime_ = std::chrono::steady_clock::now();
   // Make connect end time at least >= connectStartTime.
   connectEndTime_ = connectStartTime_;
 
+  DLOG(INFO) << "folly::AsyncSocket::connect: 4";
   assert(fd_ == -1);
   state_ = StateEnum::CONNECTING;
   connectCallback_ = callback;
 
+  DLOG(INFO) << "folly::AsyncSocket::connect: 5";
   sockaddr_storage addrStorage;
   sockaddr* saddr = reinterpret_cast<sockaddr*>(&addrStorage);
 
@@ -462,8 +468,10 @@ void AsyncSocket::connect(
     // constant (PF_xxx) rather than an address family (AF_xxx), but the
     // distinction is mainly just historical.  In pretty much all
     // implementations the PF_foo and AF_foo constants are identical.
+    DLOG(INFO) << "folly::AsyncSocket::connect: 7";
     fd_ = fsp::socket(address.getFamily(), SOCK_STREAM, 0);
     if (fd_ < 0) {
+      DLOG(INFO) << "folly::AsyncSocket::connect: 8";
       auto errnoCopy = errno;
       throw AsyncSocketException(
           AsyncSocketException::INTERNAL_ERROR,
@@ -478,6 +486,7 @@ void AsyncSocket::connect(
 
     setCloseOnExec();
 
+    DLOG(INFO) << "folly::AsyncSocket::connect: 9";
     // Put the socket in non-blocking mode
     int flags = fcntl(fd_, F_GETFL, 0);
     if (flags == -1) {
@@ -487,6 +496,7 @@ void AsyncSocket::connect(
           withAddr("failed to get socket flags"),
           errnoCopy);
     }
+    DLOG(INFO) << "folly::AsyncSocket::connect: 10";
     int rv = fcntl(fd_, F_SETFL, flags | O_NONBLOCK);
     if (rv == -1) {
       auto errnoCopy = errno;
@@ -513,6 +523,7 @@ void AsyncSocket::connect(
     // setNoDelay() will log an error message if it fails.
     // Also set the cached zeroCopyVal_ since it cannot be set earlier if the fd
     // is not created
+    DLOG(INFO) << "folly::AsyncSocket::connect: 11";
     if (address.getFamily() != AF_UNIX) {
       (void)setNoDelay(true);
       setZeroCopy(zeroCopyVal_);
@@ -521,10 +532,14 @@ void AsyncSocket::connect(
     VLOG(5) << "AsyncSocket::connect(this=" << this << ", evb=" << eventBase_
             << ", fd=" << fd_ << ", host=" << address.describe().c_str();
 
+    DLOG(INFO) << "folly::AsyncSocket::connect: 12";
     // bind the socket
     if (bindAddr != anyAddress()) {
+
+      DLOG(INFO) << "folly::AsyncSocket::connect: 13";
       int one = 1;
       if (setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one))) {
+        DLOG(INFO) << "folly::AsyncSocket::connect: 14";
         auto errnoCopy = errno;
         doClose();
         throw AsyncSocketException(
@@ -533,8 +548,10 @@ void AsyncSocket::connect(
             errnoCopy);
       }
 
+      DLOG(INFO) << "folly::AsyncSocket::connect: 15";
       bindAddr.getAddress(&addrStorage);
 
+      DLOG(INFO) << "folly::AsyncSocket::connect: 16";
       if (bind(fd_, saddr, bindAddr.getActualSize()) != 0) {
         auto errnoCopy = errno;
         doClose();
@@ -545,6 +562,7 @@ void AsyncSocket::connect(
       }
     }
 
+    DLOG(INFO) << "folly::AsyncSocket::connect: 17";
     // Apply the additional options if any.
     for (const auto& opt : options) {
       rv = opt.first.apply(fd_, opt.second);
@@ -557,14 +575,19 @@ void AsyncSocket::connect(
       }
     }
 
+    DLOG(INFO) << "folly::AsyncSocket::connect: 18";
     // Perform the connect()
     address.getAddress(&addrStorage);
 
+    DLOG(INFO) << "folly::AsyncSocket::connect: 19";
     if (tfoEnabled_) {
+      DLOG(INFO) << "folly::AsyncSocket::connect: 20";
       state_ = StateEnum::FAST_OPEN;
       tfoAttempted_ = true;
     } else {
+      DLOG(INFO) << "folly::AsyncSocket::connect: 21";
       if (socketConnect(saddr, addr_.getActualSize()) < 0) {
+        DLOG(INFO) << "folly::AsyncSocket::connect: 22";
         return;
       }
     }
@@ -584,6 +607,7 @@ void AsyncSocket::connect(
     return failConnect(__func__, tex);
   }
 
+  DLOG(INFO) << "folly::AsyncSocket::connect: 23";
   // The connection succeeded immediately
   // The read callback may not have been set yet, and no writes may be pending
   // yet, so we don't have to register for any events at the moment.
@@ -594,7 +618,11 @@ void AsyncSocket::connect(
   if (state_ != StateEnum::FAST_OPEN) {
     state_ = StateEnum::ESTABLISHED;
   }
+  DLOG(INFO) << "folly::AsyncSocket::connect: 24";
   invokeConnectSuccess();
+
+  DLOG(INFO) << "folly::AsyncSocket::connect: 25, end";
+
 }
 
 int AsyncSocket::socketConnect(const struct sockaddr* saddr, socklen_t len) {
@@ -992,7 +1020,9 @@ void AsyncSocket::write(
     WriteCallback* callback,
     const void* buf,
     size_t bytes,
-    WriteFlags flags) {
+    WriteFlags flags) 
+{
+
   iovec op;
   op.iov_base = const_cast<void*>(buf);
   op.iov_len = bytes;
@@ -1045,7 +1075,9 @@ void AsyncSocket::writeImpl(
     const iovec* vec,
     size_t count,
     unique_ptr<IOBuf>&& buf,
-    WriteFlags flags) {
+    WriteFlags flags) 
+{
+  DLOG(INFO) << "folly::AsyncSocket::writeImpl: 1";
   VLOG(6) << "AsyncSocket::writev() this=" << this << ", fd=" << fd_
           << ", callback=" << callback << ", count=" << count
           << ", state=" << state_;
@@ -1053,7 +1085,10 @@ void AsyncSocket::writeImpl(
   unique_ptr<IOBuf> ioBuf(std::move(buf));
   eventBase_->dcheckIsInEventBaseThread();
 
+  DLOG(INFO) << "folly::AsyncSocket::writeImpl: 2";
   if (shutdownFlags_ & (SHUT_WRITE | SHUT_WRITE_PENDING)) {
+
+    DLOG(INFO) << "folly::AsyncSocket::writeImpl: 3";
     // No new writes may be performed after the write side of the socket has
     // been shutdown.
     //
@@ -1065,13 +1100,18 @@ void AsyncSocket::writeImpl(
     return invalidState(callback);
   }
 
+  DLOG(INFO) << "folly::AsyncSocket::writeImpl: 4";
   uint32_t countWritten = 0;
   uint32_t partialWritten = 0;
   ssize_t bytesWritten = 0;
   bool mustRegister = false;
   if ((state_ == StateEnum::ESTABLISHED || state_ == StateEnum::FAST_OPEN) &&
       !connecting()) {
+    
+    DLOG(INFO) << "folly::AsyncSocket::writeImpl: 5";
     if (writeReqHead_ == nullptr) {
+
+      DLOG(INFO) << "folly::AsyncSocket::writeImpl: 6";
       // If we are established and there are no other writes pending,
       // we can attempt to perform the write immediately.
       assert(writeReqTail_ == nullptr);
@@ -1081,6 +1121,8 @@ void AsyncSocket::writeImpl(
           vec, uint32_t(count), flags, &countWritten, &partialWritten);
       bytesWritten = writeResult.writeReturn;
       if (bytesWritten < 0) {
+
+        DLOG(INFO) << "folly::AsyncSocket::writeImpl: 7";
         auto errnoCopy = errno;
         if (writeResult.exception) {
           return failWrite(__func__, callback, 0, *writeResult.exception);
@@ -1091,6 +1133,8 @@ void AsyncSocket::writeImpl(
             errnoCopy);
         return failWrite(__func__, callback, 0, ex);
       } else if (countWritten == count) {
+
+        DLOG(INFO) << "folly::AsyncSocket::writeImpl: 8";
         // done, add the whole buffer
         if (countWritten && isZeroCopyRequest(flags)) {
           addZeroCopyBuf(std::move(ioBuf));
@@ -1102,6 +1146,8 @@ void AsyncSocket::writeImpl(
         }
         return;
       } else { // continue writing the next writeReq
+
+        DLOG(INFO) << "folly::AsyncSocket::writeImpl: 9";
         // add just the ptr
         if (bytesWritten && isZeroCopyRequest(flags)) {
           addZeroCopyBuf(ioBuf.get());
@@ -1123,9 +1169,13 @@ void AsyncSocket::writeImpl(
     return invalidState(callback);
   }
 
+
+  DLOG(INFO) << "folly::AsyncSocket::writeImpl: 10";
   // Create a new WriteRequest to add to the queue
   WriteRequest* req;
   try {
+
+    DLOG(INFO) << "folly::AsyncSocket::writeImpl: 11";
     req = BytesWriteRequest::newRequest(
         this,
         callback,
@@ -1142,18 +1192,27 @@ void AsyncSocket::writeImpl(
         withAddr(string("failed to append new WriteRequest: ") + ex.what()));
     return failWrite(__func__, callback, size_t(bytesWritten), tex);
   }
+
+  DLOG(INFO) << "folly::AsyncSocket::writeImpl: 12";
   req->consume();
   if (writeReqTail_ == nullptr) {
+
+    DLOG(INFO) << "folly::AsyncSocket::writeImpl: 13";
     assert(writeReqHead_ == nullptr);
     writeReqHead_ = writeReqTail_ = req;
   } else {
+
+    DLOG(INFO) << "folly::AsyncSocket::writeImpl: 14";
     writeReqTail_->append(req);
     writeReqTail_ = req;
   }
 
+  DLOG(INFO) << "folly::AsyncSocket::writeImpl: 15";
   // Register for write events if are established and not currently
   // waiting on write events
   if (mustRegister) {
+
+    DLOG(INFO) << "folly::AsyncSocket::writeImpl: 16";
     assert(state_ == StateEnum::ESTABLISHED);
     assert((eventFlags_ & EventHandler::WRITE) == 0);
     if (!updateEventRegistration(EventHandler::WRITE, 0)) {
@@ -1161,8 +1220,11 @@ void AsyncSocket::writeImpl(
       return;
     }
     if (sendTimeout_ > 0) {
+
+      DLOG(INFO) << "folly::AsyncSocket::writeImpl: 17";
       // Schedule a timeout to fire if the write takes too long.
       if (!writeTimeout_.scheduleTimeout(sendTimeout_)) {
+        DLOG(INFO) << "folly::AsyncSocket::writeImpl: 18";
         AsyncSocketException ex(
             AsyncSocketException::INTERNAL_ERROR,
             withAddr("failed to schedule send timeout"));
@@ -1170,6 +1232,8 @@ void AsyncSocket::writeImpl(
       }
     }
   }
+
+  DLOG(INFO) << "folly::AsyncSocket::writeImpl: 19, end";
 }
 
 void AsyncSocket::writeRequest(WriteRequest* req) {
@@ -1183,7 +1247,9 @@ void AsyncSocket::writeRequest(WriteRequest* req) {
   }
 }
 
-void AsyncSocket::close() {
+void AsyncSocket::close() 
+{
+  DLOG(INFO) << "folly::AsyncSocket::close: 1";
   VLOG(5) << "AsyncSocket::close(): this=" << this << ", fd_=" << fd_
           << ", state=" << state_ << ", shutdownFlags=" << std::hex
           << (int)shutdownFlags_;
@@ -1235,6 +1301,8 @@ void AsyncSocket::close() {
       callback->readEOF();
     }
   }
+
+  DLOG(INFO) << "folly::AsyncSocket::close: 2";
 }
 
 void AsyncSocket::closeNow() {
@@ -1769,11 +1837,15 @@ void AsyncSocket::ioReady(uint16_t events) noexcept {
 }
 
 AsyncSocket::ReadResult
-AsyncSocket::performRead(void** buf, size_t* buflen, size_t* /* offset */) {
+AsyncSocket::performRead(void** buf, size_t* buflen, size_t* /* offset */) 
+{
+  DLOG(INFO) << "folly::AsyncSocket::performRead: 1";
   VLOG(5) << "AsyncSocket::performRead() this=" << this << ", buf=" << *buf
           << ", buflen=" << *buflen;
 
   if (preReceivedData_ && !preReceivedData_->empty()) {
+
+    DLOG(INFO) << "folly::AsyncSocket::performRead: 2";
     VLOG(5) << "AsyncSocket::performRead() this=" << this
             << ", reading pre-received data";
 
@@ -1786,18 +1858,28 @@ AsyncSocket::performRead(void** buf, size_t* buflen, size_t* /* offset */) {
     preReceivedData_ = queue.move();
 
     appBytesReceived_ += len;
+
+    DLOG(INFO) << "folly::AsyncSocket::performRead: 3, end";
     return ReadResult(len);
   }
 
+  DLOG(INFO) << "folly::AsyncSocket::performRead: 4";
   ssize_t bytes = recv(fd_, *buf, *buflen, MSG_DONTWAIT);
   if (bytes < 0) {
+
+    DLOG(INFO) << "folly::AsyncSocket::performRead: 5";
     if (errno == EAGAIN || errno == EWOULDBLOCK) {
+
+      DLOG(INFO) << "folly::AsyncSocket::performRead: 6, end";
       // No more data to read right now.
       return ReadResult(READ_BLOCKING);
     } else {
+      DLOG(INFO) << "folly::AsyncSocket::performRead: 7, end";
       return ReadResult(READ_ERROR);
     }
   } else {
+
+    DLOG(INFO) << "folly::AsyncSocket::performRead: 8, end";
     appBytesReceived_ += bytes;
     return ReadResult(bytes);
   }
@@ -2071,7 +2153,10 @@ void AsyncSocket::handleRead() noexcept {
  *   writeTimeout_ (if a non-zero timeout is set), and ensures the handler is
  *   registered for write events.
  */
-void AsyncSocket::handleWrite() noexcept {
+void AsyncSocket::handleWrite() noexcept 
+{
+
+  DLOG(INFO) << "folly::AsyncSocket::handleWrite: 1";
   VLOG(5) << "AsyncSocket::handleWrite() this=" << this << ", fd=" << fd_
           << ", state=" << state_;
   DestructorGuard dg(this);
@@ -2197,6 +2282,8 @@ void AsyncSocket::handleWrite() noexcept {
   if (!writeReqHead_ && bufferCallback_) {
     bufferCallback_->onEgressBufferCleared();
   }
+
+  DLOG(INFO) << "folly::AsyncSocket::handleWrite: 2, end";
 }
 
 void AsyncSocket::checkForImmediateRead() noexcept {
@@ -2444,7 +2531,9 @@ AsyncSocket::WriteResult AsyncSocket::performWrite(
     uint32_t count,
     WriteFlags flags,
     uint32_t* countWritten,
-    uint32_t* partialWritten) {
+    uint32_t* partialWritten) 
+{
+  DLOG(INFO) << "folly::AsyncSocket::performWrite: 1";
   // We use sendmsg() instead of writev() so that we can pass in MSG_NOSIGNAL
   // We correctly handle EPIPE errors, so we never want to receive SIGPIPE
   // (since it may terminate the program if the main program doesn't explicitly
@@ -2460,17 +2549,25 @@ AsyncSocket::WriteResult AsyncSocket::performWrite(
       AsyncSocket::SendMsgParamsCallback::maxAncillaryDataSize,
       msg.msg_controllen);
 
+  DLOG(INFO) << "folly::AsyncSocket::performWrite: 2";
   if (msg.msg_controllen != 0) {
+
+    DLOG(INFO) << "folly::AsyncSocket::performWrite: 3";
     msg.msg_control = reinterpret_cast<char*>(alloca(msg.msg_controllen));
     sendMsgParamCallback_->getAncillaryData(flags, msg.msg_control);
   } else {
+
+    DLOG(INFO) << "folly::AsyncSocket::performWrite: 4";
     msg.msg_control = nullptr;
   }
   int msg_flags = sendMsgParamCallback_->getFlags(flags, zeroCopyEnabled_);
 
+  DLOG(INFO) << "folly::AsyncSocket::performWrite: 5";
   auto writeResult = sendSocketMessage(fd_, &msg, msg_flags);
   auto totalWritten = writeResult.writeReturn;
   if (totalWritten < 0) {
+
+    DLOG(INFO) << "folly::AsyncSocket::performWrite: 6";
     bool tryAgain = (errno == EAGAIN);
 #ifdef __APPLE__
     // Apple has a bug where doing a second write on a socket which we
@@ -2480,22 +2577,31 @@ AsyncSocket::WriteResult AsyncSocket::performWrite(
     tryAgain |= (errno == ENOTCONN);
 #endif
 
+    DLOG(INFO) << "folly::AsyncSocket::performWrite: 7";
     // workaround for running with zerocopy enabled but without a proper
     // memlock value - see ulimit -l
     if (zeroCopyEnabled_ && (errno == ENOBUFS)) {
+
+      DLOG(INFO) << "folly::AsyncSocket::performWrite: 8";
       tryAgain = true;
       zeroCopyEnabled_ = false;
     }
 
+    DLOG(INFO) << "folly::AsyncSocket::performWrite: 9";
     if (!writeResult.exception && tryAgain) {
+      DLOG(INFO) << "folly::AsyncSocket::performWrite: 10";
       // TCP buffer is full; we can't write any more data right now.
       *countWritten = 0;
       *partialWritten = 0;
       return WriteResult(0);
     }
+
+    DLOG(INFO) << "folly::AsyncSocket::performWrite: 11";
     // error
     *countWritten = 0;
     *partialWritten = 0;
+
+    DLOG(INFO) << "folly::AsyncSocket::performWrite: 12, end";
     return writeResult;
   }
 
