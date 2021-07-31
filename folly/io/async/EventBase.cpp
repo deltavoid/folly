@@ -665,9 +665,13 @@ bool EventBase::runImmediatelyOrRunInEventBaseThreadAndWait(Func fn) {
   }
 }
 
-bool EventBase::runLoopCallbacks() {
+bool EventBase::runLoopCallbacks() 
+{
+  DLOG(INFO) << "folly::EventBase::runLoopCallbacks: 1";
   bumpHandlingTime();
   if (!loopCallbacks_.empty()) {
+
+    DLOG(INFO) << "folly::EventBase::runLoopCallbacks: 2";
     // Swap the loopCallbacks_ list with a temporary list on our stack.
     // This way we will only run callbacks scheduled at the time
     // runLoopCallbacks() was invoked.
@@ -681,6 +685,8 @@ bool EventBase::runLoopCallbacks() {
     runOnceCallbacks_ = &currentCallbacks;
 
     while (!currentCallbacks.empty()) {
+
+      DLOG(INFO) << "folly::EventBase::runLoopCallbacks: 3";
       LoopCallback* callback = &currentCallbacks.front();
       currentCallbacks.pop_front();
       folly::RequestContextScopeGuard rctx(std::move(callback->context_));
@@ -688,8 +694,11 @@ bool EventBase::runLoopCallbacks() {
     }
 
     runOnceCallbacks_ = nullptr;
+    DLOG(INFO) << "folly::EventBase::runLoopCallbacks: 4, end";
     return true;
   }
+
+  DLOG(INFO) << "folly::EventBase::runLoopCallbacks: 5, end";
   return false;
 }
 

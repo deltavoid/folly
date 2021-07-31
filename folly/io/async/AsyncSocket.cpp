@@ -1040,12 +1040,17 @@ void AsyncSocket::writev(
 void AsyncSocket::writeChain(
     WriteCallback* callback,
     unique_ptr<IOBuf>&& buf,
-    WriteFlags flags) {
+    WriteFlags flags) 
+{
+  DLOG(INFO) << "folly::AsyncSocket::writeChain: 1";
   adjustZeroCopyFlags(flags);
 
+  DLOG(INFO) << "folly::AsyncSocket::writeChain: 2";
   constexpr size_t kSmallSizeMax = 64;
   size_t count = buf->countChainElements();
   if (count <= kSmallSizeMax) {
+
+    DLOG(INFO) << "folly::AsyncSocket::writeChain: 3";
     // suppress "warning: variable length array 'vec' is used [-Wvla]"
     FOLLY_PUSH_WARNING
     FOLLY_GNU_DISABLE_WARNING("-Wvla")
@@ -1054,10 +1059,14 @@ void AsyncSocket::writeChain(
 
     writeChainImpl(callback, vec, count, std::move(buf), flags);
   } else {
+
+    DLOG(INFO) << "folly::AsyncSocket::writeChain: 4";
     iovec* vec = new iovec[count];
     writeChainImpl(callback, vec, count, std::move(buf), flags);
     delete[] vec;
   }
+
+  DLOG(INFO) << "folly::AsyncSocket::writeChain: 5, end";
 }
 
 void AsyncSocket::writeChainImpl(
@@ -1065,9 +1074,15 @@ void AsyncSocket::writeChainImpl(
     iovec* vec,
     size_t count,
     unique_ptr<IOBuf>&& buf,
-    WriteFlags flags) {
+    WriteFlags flags) 
+{
+  DLOG(INFO) << "folly::AsyncSocket::writeChainImpl: 1";
   size_t veclen = buf->fillIov(vec, count);
+
+  DLOG(INFO) << "folly::AsyncSocket::writeChainImpl: 2";
   writeImpl(callback, vec, veclen, std::move(buf), flags);
+
+  DLOG(INFO) << "folly::AsyncSocket::writeChainImpl: 3, end";
 }
 
 void AsyncSocket::writeImpl(
@@ -1088,7 +1103,7 @@ void AsyncSocket::writeImpl(
   DLOG(INFO) << "folly::AsyncSocket::writeImpl: 2";
   if (shutdownFlags_ & (SHUT_WRITE | SHUT_WRITE_PENDING)) {
 
-    DLOG(INFO) << "folly::AsyncSocket::writeImpl: 3";
+    DLOG(INFO) << "folly::AsyncSocket::writeImpl: 3, end";
     // No new writes may be performed after the write side of the socket has
     // been shutdown.
     //
@@ -1144,6 +1159,8 @@ void AsyncSocket::writeImpl(
         if (callback) {
           callback->writeSuccess();
         }
+
+        DLOG(INFO) << "folly::AsyncSocket::writeImpl: 8.1, end";
         return;
       } else { // continue writing the next writeReq
 
@@ -2070,12 +2087,12 @@ void AsyncSocket::handleRead() noexcept {
       // readDataAvailable().
       if (size_t(bytesRead) < buflen) {
 
-        DLOG(INFO) << "folly::AsyncSocket::handleRead: 11";
+        DLOG(INFO) << "folly::AsyncSocket::handleRead: 11, end";
         return;
       }
     } else if (bytesRead == READ_BLOCKING) {
 
-      DLOG(INFO) << "folly::AsyncSocket::handleRead: 13";
+      DLOG(INFO) << "folly::AsyncSocket::handleRead: 13, end";
       // No more data to read right now.
       return;
     } else if (bytesRead == READ_ERROR) {
@@ -2084,7 +2101,7 @@ void AsyncSocket::handleRead() noexcept {
       readErr_ = READ_ERROR;
       if (readResult.exception) {
 
-        DLOG(INFO) << "folly::AsyncSocket::handleRead: 15";
+        DLOG(INFO) << "folly::AsyncSocket::handleRead: 15, end";
         return failRead(__func__, *readResult.exception);
       }
 
@@ -2104,7 +2121,7 @@ void AsyncSocket::handleRead() noexcept {
       shutdownFlags_ |= SHUT_READ;
       if (!updateEventRegistration(0, EventHandler::READ)) {
 
-        DLOG(INFO) << "folly::AsyncSocket::handleRead: 18";
+        DLOG(INFO) << "folly::AsyncSocket::handleRead: 18, end";
         // we've already been moved into STATE_ERROR
         assert(state_ == StateEnum::ERROR);
         assert(readCallback_ == nullptr);
@@ -2116,7 +2133,7 @@ void AsyncSocket::handleRead() noexcept {
       readCallback_ = nullptr;
       callback->readEOF();
 
-      DLOG(INFO) << "folly::AsyncSocket::handleRead: 20";
+      DLOG(INFO) << "folly::AsyncSocket::handleRead: 20, end";
       return;
     }
 
@@ -2132,7 +2149,7 @@ void AsyncSocket::handleRead() noexcept {
         scheduleImmediateRead();
       }
 
-      DLOG(INFO) << "folly::AsyncSocket::handleRead: 24";
+      DLOG(INFO) << "folly::AsyncSocket::handleRead: 24, end";
       return;
     }
 
@@ -2605,8 +2622,10 @@ AsyncSocket::WriteResult AsyncSocket::performWrite(
     return writeResult;
   }
 
+  DLOG(INFO) << "folly::AsyncSocket::performWrite: 13";
   appBytesWritten_ += totalWritten;
 
+  DLOG(INFO) << "folly::AsyncSocket::performWrite: 14";
   uint32_t bytesWritten;
   uint32_t n;
   for (bytesWritten = uint32_t(totalWritten), n = 0; n < count; ++n) {
@@ -2621,9 +2640,12 @@ AsyncSocket::WriteResult AsyncSocket::performWrite(
     bytesWritten -= uint32_t(v->iov_len);
   }
 
+  DLOG(INFO) << "folly::AsyncSocket::performWrite: 15";
   assert(bytesWritten == 0);
   *countWritten = n;
   *partialWritten = 0;
+
+  DLOG(INFO) << "folly::AsyncSocket::performWrite: 16, end";
   return WriteResult(totalWritten);
 }
 
