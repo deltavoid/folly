@@ -272,7 +272,9 @@ bool EventBase::loopOnce(int flags) {
   return loopBody(flags | EVLOOP_ONCE);
 }
 
-bool EventBase::loopBody(int flags, bool ignoreKeepAlive) {
+bool EventBase::loopBody(int flags, bool ignoreKeepAlive) 
+{
+  DLOG(INFO) << "folly::EventBase::loopBody: 1";
   VLOG(5) << "EventBase(): Starting loop.";
 
   DCHECK(!invokingLoop_)
@@ -287,55 +289,78 @@ bool EventBase::loopBody(int flags, bool ignoreKeepAlive) {
     invokingLoop_ = false;
   };
 
+  DLOG(INFO) << "folly::EventBase::loopBody: 2";
   int res = 0;
   bool ranLoopCallbacks;
   bool blocking = !(flags & EVLOOP_NONBLOCK);
   bool once = (flags & EVLOOP_ONCE);
 
+  DLOG(INFO) << "folly::EventBase::loopBody: 3";
   // time-measurement variables.
   std::chrono::steady_clock::time_point prev;
   std::chrono::steady_clock::time_point idleStart = {};
   std::chrono::microseconds busy;
   std::chrono::microseconds idle;
 
+  DLOG(INFO) << "folly::EventBase::loopBody: 4";
   loopThread_.store(std::this_thread::get_id(), std::memory_order_release);
 
+  DLOG(INFO) << "folly::EventBase::loopBody: 5";
   if (!name_.empty()) {
+    DLOG(INFO) << "folly::EventBase::loopBody: 6";
     setThreadName(name_);
   }
 
+  DLOG(INFO) << "folly::EventBase::loopBody: 7";
   if (enableTimeMeasurement_) {
+
+    DLOG(INFO) << "folly::EventBase::loopBody: 8";
     prev = std::chrono::steady_clock::now();
     idleStart = prev;
   }
 
+  DLOG(INFO) << "folly::EventBase::loopBody: 9";
   while (!stop_.load(std::memory_order_relaxed)) {
+
+    DLOG(INFO) << "folly::EventBase::loopBody: 10";
     if (!ignoreKeepAlive) {
+      DLOG(INFO) << "folly::EventBase::loopBody: 11";
       applyLoopKeepAlive();
     }
     ++nextLoopCnt_;
 
     // Run the before loop callbacks
+    DLOG(INFO) << "folly::EventBase::loopBody: 12";
     LoopCallbackList callbacks;
     callbacks.swap(runBeforeLoopCallbacks_);
 
+    DLOG(INFO) << "folly::EventBase::loopBody: 13";
     while (!callbacks.empty()) {
+
+      DLOG(INFO) << "folly::EventBase::loopBody: 14";
       auto* item = &callbacks.front();
       callbacks.pop_front();
       item->runLoopCallback();
     }
 
+    DLOG(INFO) << "folly::EventBase::loopBody: 15";
     // nobody can add loop callbacks from within this thread if
     // we don't have to handle anything to start with...
     if (blocking && loopCallbacks_.empty()) {
+      DLOG(INFO) << "folly::EventBase::loopBody: 16";
       res = event_base_loop(evb_, EVLOOP_ONCE);
     } else {
+      DLOG(INFO) << "folly::EventBase::loopBody: 17";
       res = event_base_loop(evb_, EVLOOP_ONCE | EVLOOP_NONBLOCK);
     }
 
+    DLOG(INFO) << "folly::EventBase::loopBody: 18";
     ranLoopCallbacks = runLoopCallbacks();
 
+    DLOG(INFO) << "folly::EventBase::loopBody: 19";
     if (enableTimeMeasurement_) {
+
+      DLOG(INFO) << "folly::EventBase::loopBody: 20";
       auto now = std::chrono::steady_clock::now();
       busy = std::chrono::duration_cast<std::chrono::microseconds>(
           now - startWork_);
@@ -343,11 +368,15 @@ bool EventBase::loopBody(int flags, bool ignoreKeepAlive) {
           startWork_ - idleStart);
       auto loop_time = busy + idle;
 
+      DLOG(INFO) << "folly::EventBase::loopBody: 21";
       avgLoopTime_.addSample(loop_time, busy);
       maxLatencyLoopTime_.addSample(loop_time, busy);
 
+      DLOG(INFO) << "folly::EventBase::loopBody: 22";
       if (observer_) {
+        DLOG(INFO) << "folly::EventBase::loopBody: 23";
         if (observerSampleCount_++ == observer_->getSampleRate()) {
+          DLOG(INFO) << "folly::EventBase::loopBody: 24";
           observerSampleCount_ = 0;
           observer_->loopSample(busy.count(), idle.count());
         }
@@ -362,10 +391,13 @@ bool EventBase::loopBody(int flags, bool ignoreKeepAlive) {
                << " maxLatency_: " << maxLatency_.count() << "us"
                << " notificationQueueSize: " << getNotificationQueueSize()
                << " nothingHandledYet(): " << nothingHandledYet();
-
+      
+      DLOG(INFO) << "folly::EventBase::loopBody: 25";
       // see if our average loop time has exceeded our limit
       if ((maxLatency_ > std::chrono::microseconds::zero()) &&
           (maxLatencyLoopTime_.get() > double(maxLatency_.count()))) {
+
+        DLOG(INFO) << "folly::EventBase::loopBody: 26";
         maxLatencyCob_();
         // back off temporarily -- don't keep spamming maxLatencyCob_
         // if we're only a bit over the limit
@@ -375,48 +407,72 @@ bool EventBase::loopBody(int flags, bool ignoreKeepAlive) {
       // Our loop run did real work; reset the idle timer
       idleStart = now;
     } else {
+      DLOG(INFO) << "folly::EventBase::loopBody: 27";
       VLOG(11) << "EventBase " << this << " did not timeout";
     }
 
     // If the event loop indicate that there were no more events, and
     // we also didn't have any loop callbacks to run, there is nothing left to
     // do.
+    DLOG(INFO) << "folly::EventBase::loopBody: 28";
     if (res != 0 && !ranLoopCallbacks) {
+
+      DLOG(INFO) << "folly::EventBase::loopBody: 29";
       // Since Notification Queue is marked 'internal' some events may not have
       // run.  Run them manually if so, and continue looping.
       //
       if (getNotificationQueueSize() > 0) {
+        DLOG(INFO) << "folly::EventBase::loopBody: 30";
         fnRunner_->handlerReady(0);
       } else {
+        DLOG(INFO) << "folly::EventBase::loopBody: 31";
         break;
       }
     }
 
+    DLOG(INFO) << "folly::EventBase::loopBody: 32";
     if (enableTimeMeasurement_) {
+
+      DLOG(INFO) << "folly::EventBase::loopBody: 33";
       VLOG(11) << "EventBase " << this
                << " loop time: " << getTimeDelta(&prev).count();
     }
 
+
+    DLOG(INFO) << "folly::EventBase::loopBody: 34";
     if (once) {
+      DLOG(INFO) << "folly::EventBase::loopBody: 35";
       break;
     }
+
+    DLOG(INFO) << "folly::EventBase::loopBody: 36";
   }
   // Reset stop_ so loop() can be called again
+  DLOG(INFO) << "folly::EventBase::loopBody: 37";
   stop_.store(false, std::memory_order_relaxed);
 
+  DLOG(INFO) << "folly::EventBase::loopBody: 38";
   if (res < 0) {
+
+    DLOG(INFO) << "folly::EventBase::loopBody: 39";
     LOG(ERROR) << "EventBase: -- error in event loop, res = " << res;
     return false;
   } else if (res == 1) {
+
+    DLOG(INFO) << "folly::EventBase::loopBody: 40";
     VLOG(5) << "EventBase: ran out of events (exiting loop)!";
   } else if (res > 1) {
+
     LOG(ERROR) << "EventBase: unknown event loop result = " << res;
+    DLOG(INFO) << "folly::EventBase::loopBody: 41, end\n";
     return false;
   }
 
+  DLOG(INFO) << "folly::EventBase::loopBody: 42";
   loopThread_.store({}, std::memory_order_release);
 
   VLOG(5) << "EventBase(): Done with loop.";
+  DLOG(INFO) << "folly::EventBase::loopBody: 43, end\n";
   return true;
 }
 
