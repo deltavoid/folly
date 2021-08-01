@@ -287,17 +287,25 @@ AsyncSocket::AsyncSocket(EventBase* evb)
     : eventBase_(evb),
       writeTimeout_(this, evb),
       ioHandler_(this, evb),
-      immediateReadHandler_(this) {
+      immediateReadHandler_(this) 
+{
+  DLOG(INFO) << "folly::AsyncSocket::AsyncSocket(1): 1"; 
   VLOG(5) << "new AsyncSocket(" << this << ", evb=" << evb << ")";
   init();
+
+  DLOG(INFO) << "folly::AsyncSocket::AsyncSocket(1): 2"; 
 }
 
 AsyncSocket::AsyncSocket(
     EventBase* evb,
     const folly::SocketAddress& address,
     uint32_t connectTimeout)
-    : AsyncSocket(evb) {
+    : AsyncSocket(evb) 
+{
+  DLOG(INFO) << "folly::AsyncSocket::AsyncSocket(2): 1";
   connect(nullptr, address, connectTimeout);
+
+  DLOG(INFO) << "folly::AsyncSocket::AsyncSocket(2): 2";
 }
 
 AsyncSocket::AsyncSocket(
@@ -334,10 +342,15 @@ AsyncSocket::AsyncSocket(AsyncSocket::UniquePtr oldAsyncSocket)
 
 // init() method, since constructor forwarding isn't supported in most
 // compilers yet.
-void AsyncSocket::init() {
+void AsyncSocket::init() 
+{
+  DLOG(INFO) << "folly::AsyncSocket::init: 1";
   if (eventBase_) {
+
+    DLOG(INFO) << "folly::AsyncSocket::init: 2";
     eventBase_->dcheckIsInEventBaseThread();
   }
+  DLOG(INFO) << "folly::AsyncSocket::init: 3";
   shutdownFlags_ = 0;
   state_ = StateEnum::UNINIT;
   eventFlags_ = EventHandler::NONE;
@@ -353,6 +366,8 @@ void AsyncSocket::init() {
   appBytesWritten_ = 0;
   appBytesReceived_ = 0;
   sendMsgParamCallback_ = &defaultSendMsgParamsCallback;
+
+  DLOG(INFO) << "folly::AsyncSocket::init: 4, end";
 }
 
 AsyncSocket::~AsyncSocket() {
@@ -587,7 +602,7 @@ void AsyncSocket::connect(
     } else {
       DLOG(INFO) << "folly::AsyncSocket::connect: 21";
       if (socketConnect(saddr, addr_.getActualSize()) < 0) {
-        DLOG(INFO) << "folly::AsyncSocket::connect: 22";
+        DLOG(INFO) << "folly::AsyncSocket::connect: 22, end";
         return;
       }
     }
