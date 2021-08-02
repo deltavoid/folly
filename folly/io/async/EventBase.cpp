@@ -42,7 +42,10 @@ namespace folly {
 class EventBase::FunctionRunner
     : public NotificationQueue<EventBase::Func>::Consumer {
  public:
-  void messageAvailable(Func&& msg) noexcept override {
+  void messageAvailable(Func&& msg) noexcept override 
+  {
+
+    DLOG(INFO) << "folly::EventBase::FunctionRunner::messageAvailable: 1";
     // In libevent2, internal events do not break the loop.
     // Most users would expect loop(), followed by runInEventBaseThread(),
     // to break the loop and check if it should exit or not.
@@ -51,12 +54,17 @@ class EventBase::FunctionRunner
     // stop_ flag as well as runInLoop callbacks, etc.
     event_base_loopbreak(getEventBase()->evb_);
 
+    DLOG(INFO) << "folly::EventBase::FunctionRunner::messageAvailable: 2";
     if (!msg) {
+
+      DLOG(INFO) << "folly::EventBase::FunctionRunner::messageAvailable: 3, end";
       // terminateLoopSoon() sends a null message just to
       // wake up the loop.  We can ignore these messages.
       return;
     }
     msg();
+
+    DLOG(INFO) << "folly::EventBase::FunctionRunner::messageAvailable: 4, end";
   }
 };
 

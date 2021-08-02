@@ -683,31 +683,48 @@ void NotificationQueue<MessageT>::Consumer::destroy() {
 
 template <typename MessageT>
 void NotificationQueue<MessageT>::Consumer::handlerReady(
-    uint16_t /*events*/) noexcept {
+    uint16_t /*events*/) noexcept 
+{
+  DLOG(INFO) << "folly::NotificationQueue::Consumer::handlerReady: 1";
   consumeMessages(false);
+
+  DLOG(INFO) << "folly::NotificationQueue::Consumer::handlerReady: 2, end";
 }
 
 template <typename MessageT>
 void NotificationQueue<MessageT>::Consumer::consumeMessages(
     bool isDrain,
-    size_t* numConsumed) noexcept {
+    size_t* numConsumed) noexcept 
+{
+
+  DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 1";
   DestructorGuard dg(this);
   uint32_t numProcessed = 0;
   setActive(true);
+
+  DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 2";
   SCOPE_EXIT {
     if (queue_) {
       queue_->syncSignalAndQueue();
     }
   };
+
+  DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 3";
   SCOPE_EXIT {
     setActive(false, /* shouldLock = */ true);
   };
+
+  DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 4";
   SCOPE_EXIT {
     if (numConsumed != nullptr) {
       *numConsumed = numProcessed;
     }
   };
+
+  DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 5";
   while (true) {
+
+    DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 6";
     // Now pop the message off of the queue.
     //
     // We have to manually acquire and release the spinlock here, rather than
@@ -719,33 +736,47 @@ void NotificationQueue<MessageT>::Consumer::consumeMessages(
     queue_->spinlock_.lock();
     bool locked = true;
 
+    DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 7";
     try {
+
+      DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 8";
       if (UNLIKELY(queue_->queue_.empty())) {
+
+        DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 9";
         // If there is no message, we've reached the end of the queue, return.
         setActive(false);
         queue_->spinlock_.unlock();
+
+        DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 10, end";
         return;
       }
 
+      DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 11";
       // Pull a message off the queue.
       std::unique_ptr<Node> data;
       data.reset(&queue_->queue_.front());
       queue_->queue_.pop_front();
 
+      DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 12";
       // Check to see if the queue is empty now.
       // We use this as an optimization to see if we should bother trying to
       // loop again and read another message after invoking this callback.
       bool wasEmpty = queue_->queue_.empty();
       if (wasEmpty) {
+
+        DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 13";
         setActive(false);
       }
 
+      DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 14";
       // Now unlock the spinlock before we invoke the callback.
       queue_->spinlock_.unlock();
       RequestContextScopeGuard rctx(std::move(data->ctx_));
 
+      DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 15";
       locked = false;
 
+      DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 16";
       // Call the callback
       bool callbackDestroyed = false;
       CHECK(destroyedFlagPtr_ == nullptr);
@@ -753,22 +784,32 @@ void NotificationQueue<MessageT>::Consumer::consumeMessages(
       messageAvailable(std::move(data->msg_));
       destroyedFlagPtr_ = nullptr;
 
+      DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 17";
       // If the callback was destroyed before it returned, we are done
       if (callbackDestroyed) {
+
+        DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 18";
         return;
       }
 
+      DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 19";
       // If the callback is no longer installed, we are done.
       if (queue_ == nullptr) {
+
+        DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 20";
         return;
       }
 
+      DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 21";
       // If we have hit maxReadAtOnce_, we are done.
       ++numProcessed;
       if (!isDrain && maxReadAtOnce_ > 0 && numProcessed >= maxReadAtOnce_) {
+
+        DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 22";
         return;
       }
 
+      DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 23";
       // If the queue was empty before we invoked the callback, it's probable
       // that it is still empty now.  Just go ahead and return, rather than
       // looping again and trying to re-read from the eventfd.  (If a new
@@ -776,6 +817,8 @@ void NotificationQueue<MessageT>::Consumer::consumeMessages(
       // will simply be woken up the next time around the event loop and will
       // process the message then.)
       if (wasEmpty) {
+
+        DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 24";
         return;
       }
     } catch (const std::exception&) {
@@ -790,13 +833,18 @@ void NotificationQueue<MessageT>::Consumer::consumeMessages(
       // will never make forward progress and will keep trying each time around
       // the event loop.
       if (locked) {
+
+        DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 25";
         // Unlock the spinlock.
         queue_->spinlock_.unlock();
       }
 
+      DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 26";
       return;
     }
   }
+
+  DLOG(INFO) << "folly::NotificationQueue::Consumer::consumeMessages: 27, end";
 }
 
 template <typename MessageT>

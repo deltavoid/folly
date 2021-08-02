@@ -818,12 +818,15 @@ void AsyncServerSocket::setupSocket(int fd, int family) {
 void AsyncServerSocket::handlerReady(
     uint16_t /* events */,
     int fd,
-    sa_family_t addressFamily) noexcept {
+    sa_family_t addressFamily) noexcept 
+{
+  DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 1";
   assert(!callbacks_.empty());
   DestructorGuard dg(this);
 
   // Only accept up to maxAcceptAtOnce_ connections at a time,
   // to avoid starving other I/O handlers using this EventBase.
+  DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 2";
   for (uint32_t n = 0; n < maxAcceptAtOnce_; ++n) {
     SocketAddress address;
 
@@ -837,19 +840,27 @@ void AsyncServerSocket::handlerReady(
       addrLen = sizeof(struct sockaddr_un);
     }
 
+  DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 3";
     // Accept a new client socket
 #ifdef SOCK_NONBLOCK
+    DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 4";
     int clientSocket = accept4(fd, saddr, &addrLen, SOCK_NONBLOCK);
 #else
+    DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 5";
     int clientSocket = accept(fd, saddr, &addrLen);
 #endif
 
+    DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 6";
     address.setFromSockaddr(saddr, addrLen);
 
+    DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 7";
     if (clientSocket >= 0 && connectionEventCallback_) {
+
+      DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 8";
       connectionEventCallback_->onConnectionAccepted(clientSocket, address);
     }
 
+    DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 9";
     std::chrono::time_point<std::chrono::steady_clock> nowMs =
         std::chrono::steady_clock::now();
     auto timeSinceLastAccept = std::max<int64_t>(
@@ -857,15 +868,26 @@ void AsyncServerSocket::handlerReady(
         nowMs.time_since_epoch().count() -
             lastAccepTimestamp_.time_since_epoch().count());
     lastAccepTimestamp_ = nowMs;
+    DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 10";
     if (acceptRate_ < 1) {
+
+      DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 11";
       acceptRate_ *= 1 + acceptRateAdjustSpeed_ * timeSinceLastAccept;
       if (acceptRate_ >= 1) {
+
+        DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 12";
         acceptRate_ = 1;
       } else if (rand() > acceptRate_ * RAND_MAX) {
+
+        DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 13";
         ++numDroppedConnections_;
         if (clientSocket >= 0) {
+
+          DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 14";
           closeNoInt(clientSocket);
           if (connectionEventCallback_) {
+
+            DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 15";
             connectionEventCallback_->onConnectionDropped(
                 clientSocket, address);
           }
@@ -874,12 +896,19 @@ void AsyncServerSocket::handlerReady(
       }
     }
 
+    DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 16";
     if (clientSocket < 0) {
+
+      DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 17";
       if (errno == EAGAIN) {
         // No more sockets to accept right now.
         // Check for this code first, since it's the most common.
+
+        DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 18, end";
         return;
       } else if (errno == EMFILE || errno == ENFILE) {
+
+        DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 19";
         // We're out of file descriptors.  Perhaps we're accepting connections
         // too quickly. Pause accepting briefly to back off and give the server
         // a chance to recover.
@@ -890,48 +919,73 @@ void AsyncServerSocket::handlerReady(
         // Dispatch the error message
         dispatchError("accept() failed", errno);
       } else {
+
+        DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 20";
         dispatchError("accept() failed", errno);
       }
       if (connectionEventCallback_) {
+
+        DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 21";
         connectionEventCallback_->onConnectionAcceptError(errno);
       }
+
+      DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 22, end";
       return;
     }
 
+  DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 23";
 #ifndef SOCK_NONBLOCK
+
+    DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 24";
     // Explicitly set the new connection to non-blocking mode
     if (fcntl(clientSocket, F_SETFL, O_NONBLOCK) != 0) {
+
+      DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 25";
       closeNoInt(clientSocket);
       dispatchError(
           "failed to set accepted socket to non-blocking mode", errno);
       if (connectionEventCallback_) {
         connectionEventCallback_->onConnectionDropped(clientSocket, address);
       }
+
+      DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 26, end";
       return;
     }
 #endif
 
+    DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 27";
     // Inform the callback about the new connection
     dispatchSocket(clientSocket, std::move(address));
 
     // If we aren't accepting any more, break out of the loop
     if (!accepting_ || callbacks_.empty()) {
+
+      DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 28";
       break;
     }
   }
+
+  DLOG(INFO) << "folly::AsyncServerSocket::handlerReady: 29, end";
 }
 
-void AsyncServerSocket::dispatchSocket(int socket, SocketAddress&& address) {
+void AsyncServerSocket::dispatchSocket(int socket, SocketAddress&& address) 
+{
+
+  DLOG(INFO) << "folly::AsyncServerSocket::dispatchSocket: 1";
   uint32_t startingIndex = callbackIndex_;
 
   // Short circuit if the callback is in the primary EventBase thread
 
+  DLOG(INFO) << "folly::AsyncServerSocket::dispatchSocket: 2";
   CallbackInfo* info = nextCallback();
   if (info->eventBase == nullptr || info->eventBase == this->eventBase_) {
+
+    DLOG(INFO) << "folly::AsyncServerSocket::dispatchSocket: 3";
     info->callback->connectionAccepted(socket, address);
     return;
   }
 
+  DLOG(INFO) << "folly::AsyncServerSocket::dispatchSocket: 4";
   const SocketAddress addr(address);
   // Create a message to send over the notification queue
   QueueMessage msg;
@@ -939,27 +993,42 @@ void AsyncServerSocket::dispatchSocket(int socket, SocketAddress&& address) {
   msg.address = std::move(address);
   msg.fd = socket;
 
+  DLOG(INFO) << "folly::AsyncServerSocket::dispatchSocket: 5";
   // Loop until we find a free queue to write to
   while (true) {
+
+    DLOG(INFO) << "folly::AsyncServerSocket::dispatchSocket: 6";
     if (info->consumer->getQueue()->tryPutMessageNoThrow(std::move(msg))) {
+
+      DLOG(INFO) << "folly::AsyncServerSocket::dispatchSocket: 7";
       if (connectionEventCallback_) {
+
+        DLOG(INFO) << "folly::AsyncServerSocket::dispatchSocket: 8";
         connectionEventCallback_->onConnectionEnqueuedForAcceptorCallback(
             socket, addr);
       }
       // Success! return.
+
+      DLOG(INFO) << "folly::AsyncServerSocket::dispatchSocket: 9";
       return;
     }
 
     // We couldn't add to queue.  Fall through to below
 
+    DLOG(INFO) << "folly::AsyncServerSocket::dispatchSocket: 10";
     ++numDroppedConnections_;
     if (acceptRateAdjustSpeed_ > 0) {
+
+      DLOG(INFO) << "folly::AsyncServerSocket::dispatchSocket: 11";
       // aggressively decrease accept rate when in trouble
       static const double kAcceptRateDecreaseSpeed = 0.1;
       acceptRate_ *= 1 - kAcceptRateDecreaseSpeed;
     }
 
+    DLOG(INFO) << "folly::AsyncServerSocket::dispatchSocket: 12";
     if (callbackIndex_ == startingIndex) {
+
+      DLOG(INFO) << "folly::AsyncServerSocket::dispatchSocket: 13";
       // The notification queue was full
       // We can't really do anything at this point other than close the socket.
       //
@@ -973,13 +1042,20 @@ void AsyncServerSocket::dispatchSocket(int socket, SocketAddress&& address) {
                               << " all accept callback queues are full";
       closeNoInt(socket);
       if (connectionEventCallback_) {
+
+        DLOG(INFO) << "folly::AsyncServerSocket::dispatchSocket: 14";
         connectionEventCallback_->onConnectionDropped(socket, addr);
       }
+
+      DLOG(INFO) << "folly::AsyncServerSocket::dispatchSocket: 15";
       return;
     }
 
+    DLOG(INFO) << "folly::AsyncServerSocket::dispatchSocket: 16";
     info = nextCallback();
   }
+
+  DLOG(INFO) << "folly::AsyncServerSocket::dispatchSocket: 17, end";
 }
 
 void AsyncServerSocket::dispatchError(const char* msgstr, int errnoValue) {

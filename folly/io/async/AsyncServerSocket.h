@@ -847,8 +847,13 @@ class AsyncServerSocket : public DelayedDestruction, public AsyncSocketBase {
     }
 
     // Inherited from EventHandler
-    void handlerReady(uint16_t events) noexcept override {
+    void handlerReady(uint16_t events) noexcept override 
+    {
+
+      DLOG(INFO) << "folly::AsyncServerSocket::ServerEventHandler::handlerReady: 1";
       parent_->handlerReady(events, socket_, addressFamily_);
+
+      DLOG(INFO) << "folly::AsyncServerSocket::ServerEventHandler::handlerReady: 2";
     }
 
     EventBase* eventBase_;
