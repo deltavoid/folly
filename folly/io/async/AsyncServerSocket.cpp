@@ -104,9 +104,13 @@ void AsyncServerSocket::RemoteAcceptor::stop(
 }
 
 void AsyncServerSocket::RemoteAcceptor::messageAvailable(
-    QueueMessage&& msg) noexcept {
+    QueueMessage&& msg) noexcept 
+{
+  DLOG(INFO) << "folly::AsyncServerSocket::RemoteAcceptor::messageAvailable: 1";
   switch (msg.type) {
     case MessageType::MSG_NEW_CONN: {
+
+      DLOG(INFO) << "folly::AsyncServerSocket::RemoteAcceptor::messageAvailable: 2";
       if (connectionEventCallback_) {
         connectionEventCallback_->onConnectionDequeuedByAcceptorCallback(
             msg.fd, msg.address);
@@ -115,11 +119,15 @@ void AsyncServerSocket::RemoteAcceptor::messageAvailable(
       break;
     }
     case MessageType::MSG_ERROR: {
+
+      DLOG(INFO) << "folly::AsyncServerSocket::RemoteAcceptor::messageAvailable: 3";
       std::runtime_error ex(msg.msg);
       callback_->acceptError(ex);
       break;
     }
     default: {
+
+      DLOG(INFO) << "folly::AsyncServerSocket::RemoteAcceptor::messageAvailable: 4";
       LOG(ERROR) << "invalid accept notification message type "
                  << int(msg.type);
       std::runtime_error ex(
@@ -127,6 +135,8 @@ void AsyncServerSocket::RemoteAcceptor::messageAvailable(
       callback_->acceptError(ex);
     }
   }
+
+  DLOG(INFO) << "folly::AsyncServerSocket::RemoteAcceptor::messageAvailable: 5, end";
 }
 
 /*
