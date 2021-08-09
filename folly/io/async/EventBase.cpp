@@ -616,30 +616,46 @@ void EventBase::runBeforeLoop(LoopCallback* callback) {
 }
 
 bool EventBase::runInEventBaseThread(Func fn) {
+
+  DLOG(INFO) << "folly::EventBase::runInEventBaseThread: 1";
   // Send the message.
   // It will be received by the FunctionRunner in the EventBase's thread.
 
   // We try not to schedule nullptr callbacks
   if (!fn) {
+    DLOG(INFO) << "folly::EventBase::runInEventBaseThread: 2";
     LOG(ERROR) << "EventBase " << this
                << ": Scheduling nullptr callbacks is not allowed";
     return false;
   }
 
+  DLOG(INFO) << "folly::EventBase::runInEventBaseThread: 2";
   // Short-circuit if we are already in our event base
   if (inRunningEventBaseThread()) {
+
+    DLOG(INFO) << "folly::EventBase::runInEventBaseThread: 3";
     runInLoop(std::move(fn));
     return true;
   }
 
+  DLOG(INFO) << "folly::EventBase::runInEventBaseThread: 4";
   try {
+
+    DLOG(INFO) << "folly::EventBase::runInEventBaseThread: 5";
     queue_->putMessage(std::move(fn));
+  
+    DLOG(INFO) << "folly::EventBase::runInEventBaseThread: 6";
   } catch (const std::exception& ex) {
+
+    DLOG(INFO) << "folly::EventBase::runInEventBaseThread: 7";
     LOG(ERROR) << "EventBase " << this << ": failed to schedule function "
                << "for EventBase thread: " << ex.what();
+    
+    DLOG(INFO) << "folly::EventBase::runInEventBaseThread: 8, end";
     return false;
   }
 
+  DLOG(INFO) << "folly::EventBase::runInEventBaseThread: 9, end";
   return true;
 }
 
